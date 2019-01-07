@@ -1,0 +1,14 @@
+{
+    "totalPassengers":3,
+    "bookingDetails":{
+        "unicornClass":"luxury",
+        "bookingName":"santa",
+        "pickupCoordinates":[153.376518980352,-27.9647132673718],
+        "dropoffCoordinates":[173.9647132673718,40.376518980352],
+        "sequenceNumber": 4,
+        "relevanceTrafficDirection": "downstreamTraffic",
+        "validityDuration": 600,
+        "transmissionInterval": 1000,
+        "stationType": 0
+    }
+}

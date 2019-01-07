@@ -1,0 +1,9 @@
+# Generic
+sam package --template-file ./lambdaDeploy.yaml --output-template-file lambdaDeployCFN.yaml --s3-bucket <ENVIRONMENT_PREFIX>visualisationcodepackages
+sam deploy --template-file lambdaDeployCFN.yaml --stack-name <ENVIRONMENT_PREFIX>datalake-elasticsearch-lambdas --capabilities CAPABILITY_IAM --parameter-overrides EnvironmentPrefix=<ENVIRONMENT_PREFIX>
+
+# Wildrydes
+sam package --template-file ./lambdaDeploy.yaml --output-template-file lambdaDeployCFN.yaml --s3-bucket wildrydes-dev-visualisationcodepackages
+sam deploy --template-file lambdaDeployCFN.yaml --stack-name wildrydes-dev-datalake-elasticsearch-lambdas --capabilities CAPABILITY_IAM --parameter-overrides EnvironmentPrefix=wildrydes-dev-
+
+

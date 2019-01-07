@@ -1,0 +1,84 @@
+﻿AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Creates the resources necessary to perform local (AWS based) visualisations.
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: DynamoDBStreamSubscribe
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams              
+                Resource:
+                  Fn::ImportValue:
+                    !Sub "${EnvironmentPrefix}DataLake-DataCatalogStreamARN"
+        - PolicyName: CloudwatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: "*"                         
+        - PolicyName: ElasticsearchPost
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "es:ESHttpPost"
+                Resource:
+                  !Join
+                    - ''
+                    - - Fn::ImportValue: !Sub "${EnvironmentPrefix}DataLake-ElasticSearchDomainArn"             
+                      - /*
+
+  DataTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1 # Trigger one lambda per document
+      Enabled: True
+      EventSourceArn: 
+        Fn::ImportValue:
+          !Sub "${EnvironmentPrefix}DataLake-DataCatalogStreamARN"
+      FunctionName: 
+        Fn::GetAtt: [ SendDataCatalogUpdateToElasticsearch , Arn ]
+      StartingPosition: LATEST # Subscribe from the tail of the stream
+    DependsOn: LambdaExecutionRole
+
+  SendDataCatalogUpdateToElasticsearch:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: sendDataCatalogUpdateToElasticsearch.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./src/sendDataCatalogUpdateToElasticsearch.py
+      Description: Sends changes in the data catalog to elasticsearch
+      MemorySize: 128
+      Timeout: 10
+      Role: !GetAtt [ LambdaExecutionRole, Arn ]
+      Environment:
+        Variables:
+          ELASTICSEARCH_ENDPOINT: 
+            Fn::ImportValue: !Sub "${EnvironmentPrefix}DataLake-ElasticSearchDomainEndpoint"             
+
+Parameters:
+  EnvironmentPrefix:
+    Type: String
+    Default: dev
+    Description: Enter the environment prefix used for the DataLake structure (S3 Buckets and DynamoDB tables

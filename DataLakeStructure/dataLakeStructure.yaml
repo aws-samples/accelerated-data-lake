@@ -1,0 +1,629 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates the S3 and DynamoDB structure of the Data Lake.
+Resources:
+  # S3 Buckets
+  StagingEngineCodePackages:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - stagingenginecodepackages
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+
+  DataCurationCodePackages:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - datacurationcodepackages
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+
+  VisualisationCodePackages:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - visualisationcodepackages        
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]                 
+
+  S3Staging:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3StagingName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: false            
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+      LoggingConfiguration:
+        DestinationBucketName:
+          !Join
+            - ''
+            - - !Ref EnvironmentPrefix
+              - !Ref S3LogsName
+        LogFilePrefix:
+          !Join
+            - ''
+            - - !Ref S3StagingName
+              - '/'
+    DependsOn: S3Logs
+
+  S3Raw:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3RawName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: false            
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+      LoggingConfiguration:
+        DestinationBucketName:
+          !Join
+            - ''
+            - - !Ref EnvironmentPrefix
+              - !Ref S3LogsName
+        LogFilePrefix:
+          !Join
+            - ''
+            - - !Ref S3RawName
+              - '/'
+    DependsOn: S3Logs
+
+  S3RawBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3RawName
+      PolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "s3:PutObject"
+            Effect: "Allow"
+            Resource: 
+              - Fn::Join:
+                - ''
+                -
+                  - Fn::GetAtt: [ S3Raw, Arn ]
+                  - '/stationPlatformMessage/*'              
+              - Fn::Join:
+                - ''
+                -
+                  - Fn::GetAtt: [ S3Raw, Arn ]
+                  - '/safetyEvaluationMessage/*'
+              - Fn::Join:
+                - ''
+                -
+                  - Fn::GetAtt: [ S3Raw, Arn ]
+                  - '/messageEvent/*'                                 
+            Principal: 
+              AWS: "arn:aws:iam::277981847675:role/dan-LambdaRole"
+            Condition: 
+              StringEquals: 
+                "s3:x-amz-acl": "bucket-owner-full-control"  
+    DependsOn: S3Raw
+
+  S3Curated:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3CuratedName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: false   
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+      LoggingConfiguration:
+        DestinationBucketName:
+          !Join
+            - ''
+            - - !Ref EnvironmentPrefix
+              - !Ref S3LogsName
+        LogFilePrefix:
+          !Join
+            - ''
+            - - !Ref S3CuratedName
+              - '/'
+    DependsOn: S3Logs
+
+  # S3Gold:
+  #   Type: 'AWS::S3::Bucket'
+  #   Properties:
+  #     BucketName:
+  #       !Join
+  #         - ''
+  #         - - !Ref EnvironmentPrefix
+  #           - !Ref S3GoldName
+  #     BucketEncryption:
+  #       ServerSideEncryptionConfiguration:
+  #         - ServerSideEncryptionByDefault:
+  #             SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+  #             KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+  #     LoggingConfiguration:
+  #       DestinationBucketName:
+  #         !Join
+  #           - ''
+  #           - - !Ref EnvironmentPrefix
+  #             - !Ref S3LogsName
+  #       LogFilePrefix:
+  #         !Join
+  #           - ''
+  #           - - !Ref S3GoldName
+  #             - '/'
+  #   DependsOn: S3Logs
+
+  S3Logs:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: "LogDeliveryWrite"
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3LogsName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: false              
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+
+  S3Failed:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        !Join
+          - ''
+          - - !Ref EnvironmentPrefix
+            - !Ref S3FailedName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: false              
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+              KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+      LoggingConfiguration:
+        DestinationBucketName:
+          !Join
+            - ''
+            - - !Ref EnvironmentPrefix
+              - !Ref S3LogsName
+        LogFilePrefix:
+          !Join
+            - ''
+            - - !Ref S3FailedName
+              - '/'
+    DependsOn: S3Logs
+
+  # S3DDE:
+  #   Type: 'AWS::S3::Bucket'
+  #   Properties:
+  #     BucketName:
+  #       !Join
+  #         - ''
+  #         - - !Ref EnvironmentPrefix
+  #           - !Ref S3DDEName
+  #     BucketEncryption:
+  #       ServerSideEncryptionConfiguration:
+  #         - ServerSideEncryptionByDefault:
+  #             SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+  #             KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+  #     LoggingConfiguration:
+  #       DestinationBucketName:
+  #         !Join
+  #           - ''
+  #           - - !Ref EnvironmentPrefix
+  #             - !Ref S3LogsName
+  #       LogFilePrefix:
+  #         !Join
+  #           - ''
+  #           - - !Ref S3DDEName
+  #             - '/'
+  #   DependsOn: S3Logs
+
+  # S3Validation:
+  #   Type: 'AWS::S3::Bucket'
+  #   Properties:
+  #     BucketName:
+  #       !Join
+  #         - ''
+  #         - - !Ref EnvironmentPrefix
+  #           - !Ref S3ValidationName
+  #     BucketEncryption:
+  #       ServerSideEncryptionConfiguration:
+  #         - ServerSideEncryptionByDefault:
+  #             SSEAlgorithm: !If [HasKMSKey,"aws:kms","AES256"]
+  #             KMSMasterKeyID: !If [HasKMSKey, !Ref KMSKeyARN, !Ref "AWS::NoValue"]
+  #     LoggingConfiguration:
+  #       DestinationBucketName:
+  #         !Join
+  #           - ''
+  #           - - !Ref EnvironmentPrefix
+  #             - !Ref S3LogsName
+  #       LogFilePrefix:
+  #         !Join
+  #           - ''
+  #           - - !Ref S3ValidationName
+  #             - '/'
+  #   DependsOn: S3Logs
+
+  # DynamoDB Tables
+  DataSourceTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "fileType"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "fileType"
+          KeyType: "HASH"
+      TableName: !Sub '${EnvironmentPrefix}${DataSourceTableName}'
+      ProvisionedThroughput:
+        ReadCapacityUnits:
+          Ref: ReadCapacityUnitsDS
+        WriteCapacityUnits:
+          Ref: WriteCapacityUnitsDS
+
+  DataCatalogTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "rawKey"
+          AttributeType: "S"
+        -
+          AttributeName: "catalogTime"
+          AttributeType: "N"
+      KeySchema:
+        -
+          AttributeName: "rawKey"
+          KeyType: "HASH"
+        -
+          AttributeName: "catalogTime"
+          KeyType: "RANGE"
+      TableName: !Sub '${EnvironmentPrefix}${DataCatalogTableName}'
+      ProvisionedThroughput:
+        ReadCapacityUnits:
+          Ref: ReadCapacityUnitsDC
+        WriteCapacityUnits:
+          Ref: WriteCapacityUnitsDC
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  S3CacheTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "lastRequestId"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "lastRequestId"
+          KeyType: "HASH"
+      TableName: !Sub '${EnvironmentPrefix}${S3FileProcessingCacheTableName}'
+      ProvisionedThroughput:
+        ReadCapacityUnits:
+          Ref: ReadCapacityUnitsS3C
+        WriteCapacityUnits:
+          Ref: WriteCapacityUnitsS3C
+
+Parameters:
+  # Prefix used for S3 Buckets and DynamomDB tables (so devo, gamma, prod etc can share account)
+  EnvironmentPrefix:
+    Type: String
+    Default: dev
+    Description: Enter an environment prefix for the S3 Buckets and DynamoDB tables.
+
+  KMSKeyARN:
+    Type: String
+    Description: Enter a KMS Key ARN for the S3 bucket encryption (no encryption is applied if this field is blank).
+
+  S3StagingName:
+    Type: String
+    Default: staging
+    Description: Enter a name for the staging S3 bucket. This is a required field.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  S3RawName:
+    Type: String
+    Default: raw
+    Description: Enter a name for the raw S3 bucket. This is a required field.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  S3CuratedName:
+    Type: String
+    Default: curated
+    Description: Enter a name for the curated bucket.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  # S3GoldName:
+  #   Type: String
+  #   Default: gold
+  #   Description: Enter a name for the S3 gold bucket.
+  #   MinLength: 3
+  #   MaxLength: 63
+  #   AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  # S3ValidationName:
+  #   Type: String
+  #   Default: validation
+  #   Description: Enter a name for the S3 validation bucket.
+  #   MinLength: 3
+  #   MaxLength: 63
+  #   AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  # S3DDEName:
+  #   Type: String
+  #   Default: datadiscovery
+  #   Description: Enter a name for the S3 data discovery / sandpit bucket.
+  #   MinLength: 3
+  #   MaxLength: 63
+  #   AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  S3FailedName:
+    Type: String
+    Default: failed
+    Description: Enter a name for the S3 failed bucket.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  S3LogsName:
+    Type: String
+    Default: logs
+    Description: Enter the name of the S3 logs bucket.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  DataSourceTableName:
+    Type: String
+    Default: dataSources
+    Description: Enter enter the Data Source DynamoDB table name.
+
+  ReadCapacityUnitsDS:
+    Type: Number
+    Default: 5
+    Description: Enter the number of read capacity units for the Data Source DynamoDB table.
+
+  WriteCapacityUnitsDS:
+    Type: Number
+    Default: 5
+    Description: Enter the number of write capacity units for the Data Source DynamoDB table.
+
+  DataCatalogTableName:
+    Type: String
+    Default: dataCatalog
+    Description: Enter the Data Catalog DynamoDB table name.
+
+  ReadCapacityUnitsDC:
+    Type: Number
+    Default: 5
+    Description: Enter the number of read capacity units for the Data Catalog DynamoDB table.
+
+  WriteCapacityUnitsDC:
+    Type: Number
+    Default: 5
+    Description: Enter the number of write capacity units for the Data Catalog DynamoDB table.
+
+  S3FileProcessingCacheTableName:
+    Type: String
+    Default: s3FileProcessingCache
+    Description: Enter the S3 File Processing Cache DynamoDB table name.
+
+  ReadCapacityUnitsS3C:
+    Type: Number
+    Default: 5
+    Description: Enter the number of read capacity units for the S3 File Processing Cache DynamoDB table.
+
+  WriteCapacityUnitsS3C:
+    Type: Number
+    Default: 5
+    Description: Enter the number of write capacity units for the S3 File Processing Cache DynamoDB table.
+
+Conditions:
+  HasKMSKey:
+    !Not [!Equals [!Ref KMSKeyARN, ""]]
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Environment Prefix
+        Parameters:
+          - EnvironmentPrefix
+      - Label:
+          default: KMS Keys
+        Parameters:
+          - KMSKeyARN
+      - Label:
+          default: S3 Data Buckets
+        Parameters:
+          - S3StagingName
+          - S3RawName
+          - S3CuratedName
+          # - S3GoldName
+          # - S3DDEName
+          # - S3ValidationName
+          - S3FailedName
+          - S3LogsName
+      - Label:
+          default: Data Source DynamoDB Table
+        Parameters:
+          - DataSourceTableName
+          - ReadCapacityUnitsDS
+          - WriteCapacityUnitsDS
+      - Label:
+          default: Data Catalog DynamoDB Table
+        Parameters:
+          - DataCatalogTableName
+          - ReadCapacityUnitsDC
+          - WriteCapacityUnitsDC
+      - Label:
+          default: S3 File Processing Cache DynamoDB Table
+        Parameters:
+          - S3FileProcessingCacheTableName
+          - ReadCapacityUnitsS3C
+          - WriteCapacityUnitsS3C                  
+
+Outputs:
+  S3FileProcessingCacheTableName:
+    Description: The name of the S3FileProcessingCache DDBTable
+    Value: !Sub '${EnvironmentPrefix}${S3FileProcessingCacheTableName}'
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3FileProcessingCacheTableName"          
+
+  DataSourceTableName:
+    Description: The name of the DataSource DDBTable
+    Value: !Sub '${EnvironmentPrefix}${DataSourceTableName}'
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-DataSourceTableName"          
+
+  DataCatalogTableName:
+    Description: The name of the DataCatalog DDBTable
+    Value: !Sub '${EnvironmentPrefix}${DataCatalogTableName}'
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-DataCatalogTableName"          
+
+  DataCatalogTableARN:
+    Description: The ARN of the DataCatalog DDBTable
+    Value: !GetAtt DataCatalogTable.Arn
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-DataCatalogTableARN"          
+
+  DataCatalogStreamARN:
+    Description: The ARN of the DataCatalog DDBTable stream
+    Value: !GetAtt [DataCatalogTable, StreamArn]
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-DataCatalogStreamARN"     
+
+  S3StagingName:
+    Description: The name of the Staging S3 bucket created
+    Value: !Sub "${EnvironmentPrefix}${S3StagingName}"
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Staging-Name"
+
+  S3StagingARN:
+    Description: The arn of the Staging S3 bucket created
+    Value: !GetAtt S3Staging.Arn
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Staging-Arn"
+
+  S3RawName:
+    Description: The name of the Raw S3 bucket created
+    Value: !Sub "${EnvironmentPrefix}${S3RawName}"
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Raw-Name"
+
+  S3RawARN:
+    Description: The arn of the Raw S3 bucket created
+    Value: !GetAtt S3Raw.Arn
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Raw-Arn"
+
+  S3CuratedName:
+    Description: The name of the Curated S3 bucket created
+    Value: !Sub "${EnvironmentPrefix}${S3CuratedName}"
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Curated-Name"
+
+  S3CuratedARN:
+    Description: The arn of the Curated S3 bucket created
+    Value: !GetAtt S3Curated.Arn
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Curated-Arn"
+
+  # S3GoldARN:
+  #   Description: The arn of the Gold S3 bucket created
+  #   Value: !GetAtt S3Gold.Arn
+  #   Export: 
+  #     Name: !Sub "${EnvironmentPrefix}DataLake-S3Gold-Arn"
+
+  # S3DDEARN:
+  #   Description: The arn of the DDE S3 bucket created
+  #   Value: !GetAtt S3DDE.Arn
+  #   Export: 
+  #     Name: !Sub "${EnvironmentPrefix}DataLake-S3DDE-Arn"
+
+  # S3Validation:
+  #   Description: The arn of the Validation S3 bucket created
+  #   Value: !GetAtt S3Validation.Arn
+  #   Export: 
+  #     Name: !Sub "${EnvironmentPrefix}DataLake-S3Validation-Arn"
+
+  S3FailedName:
+    Description: The name of the Failed S3 bucket created
+    Value: !Sub "${EnvironmentPrefix}${S3FailedName}"
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Failed-Name"
+
+  S3FailedARN:
+    Description: The arn of the Failed S3 bucket created
+    Value: !GetAtt S3Failed.Arn
+    Export: 
+      Name: !Sub "${EnvironmentPrefix}DataLake-S3Failed-Arn"

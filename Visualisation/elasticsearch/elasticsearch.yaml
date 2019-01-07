@@ -1,0 +1,255 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'DataLake Elasticsearch Visualisation'
+Parameters:
+  EnvironmentPrefix:
+    Type: String
+    Default: dev
+    Description: Enter an environment prefix for the elasticsearch domain.
+  ElasticSearchInstanceCount:
+    Description: Elastic Search Instance Count
+    Type: Number
+    Default: 1
+  ElasticSearchMasterInstanceCount:
+    Description: Elastic Search Master Instance Count
+    Type: Number
+    Default: 0
+  ElasticSearchInstanceType:
+    Description: Elastic Search Instance Type
+    Type: String
+    Default: t2.medium.elasticsearch
+  ElasticSearchMasterInstanceType:
+    Description: Elastic Search Master Instance Type
+    Type: String
+    Default: t2.small.elasticsearch
+  ElasticSearchDiskSpace:
+    Description: Elastic Search Disk Space
+    Type: Number
+    Default: 10
+  ZoneAwarenessEnabled:
+    Description: Elasticsearch zone awareness enabled
+    Type: String
+    Default: false
+    AllowedValues: [true, false]
+  DedicatedMasterEnabled:
+    Description: Elasticsearch installation has dedicated masters instances
+    Type: String
+    Default: false
+    AllowedValues: [true, false]
+  AllowExplicitIndex:
+    Description: Elasticsearch allows explicit indexes
+    Type: String
+    Default: true # This is set to true as dataCatalog lambda requires it
+    AllowedValues: [true, false]
+  IpAddress:
+    Description: The IP address allowed access to kibana url
+    Type: String
+    Default: 54.240.193.1/24 
+Conditions: 
+  HasDedicatedMasterNodes: !Equals [!Ref DedicatedMasterEnabled, true]    
+Resources:
+  DataLakeElasticsearchDomain:
+    Type: 'AWS::Elasticsearch::Domain'
+    Properties:
+      DomainName: !Sub "${EnvironmentPrefix}datalake-es" 
+      ElasticsearchVersion: '6.3'
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: !Ref DedicatedMasterEnabled
+        ZoneAwarenessEnabled: !Ref ZoneAwarenessEnabled
+        InstanceType: !Ref ElasticSearchInstanceType
+        InstanceCount: !Ref ElasticSearchInstanceCount
+        DedicatedMasterType: !If [HasDedicatedMasterNodes, !Ref ElasticSearchMasterInstanceType, !Ref 'AWS::NoValue'] 
+        DedicatedMasterCount: !If [HasDedicatedMasterNodes, !Ref ElasticSearchMasterInstanceCount, !Ref 'AWS::NoValue'] 
+      EBSOptions:
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: !Ref ElasticSearchDiskSpace
+        VolumeType: gp2
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: '0'
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - es:*
+          Condition:
+            IpAddress:
+              aws:SourceIp:
+              - "54.240.193.0/24"
+              - "203.9.185.243/32"
+              - "13.237.104.186"
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: !Ref AllowExplicitIndex
+  ElasticsearchCloudWatchDashboard:
+    Type: "AWS::CloudWatch::Dashboard"
+    Properties:
+      DashboardName: !Sub "${EnvironmentPrefix}datalake-elasticsearch-dashboard"                    
+      DashboardBody: !Sub >
+        {
+            "widgets": [
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 0,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "CPUUtilization", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ],
+                            [ ".", "MasterCPUUtilization", ".", ".", ".", "." ],
+                            [ ".", "JVMMemoryPressure", ".", ".", ".", "." ],
+                            [ ".", "MasterJVMMemoryPressure", ".", ".", ".", "." ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "period": 300,
+                        "title": "CPU and JVM Memory Pressure - master and instances"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 12,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "ClusterStatus.green", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "color": "#2ca02c" } ],
+                            [ ".", "ClusterStatus.yellow", ".", ".", ".", ".", { "color": "#ffff00" } ],
+                            [ ".", "ClusterStatus.red", ".", ".", ".", ".", { "color": "#ff0000" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ClusterStatus"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 18,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "ClusterUsedSpace", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ClusterUsedSpace (Total space in MB)"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 24,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "FreeStorageSpace", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "FreeStorageSpace (The minimum free space in MB for all data nodes in the cluster)"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 30,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "ReadLatency", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ReadLatency",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 36,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "WriteLatency", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ]
+                        ],
+                        "region": "${AWS::Region}"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 6,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "MasterReachableFromNode", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ]
+                        ],
+                        "region": "${AWS::Region}"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 42,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "SearchableDocuments", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "stat": "Average" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 48,
+                    "width": 21,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "KibanaHealthyNodes", "DomainName", "${DataLakeElasticsearchDomain}", "ClientId", "${AWS::AccountId}" ],
+                            [ ".", "Nodes", ".", ".", ".", "." ]
+                        ],
+                        "region": "${AWS::Region}"
+                    }
+                }
+            ]
+          }
+
+Outputs:
+  ElasticSearchDomainEndpoint:
+    Description: The endpoint of the elasticsearch domain
+    Value: !GetAtt DataLakeElasticsearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-ElasticSearchDomainEndpoint"              
+
+  ElasticSearchDomainARN:
+    Description: The arn of the elasticsearch domain
+    Value: !GetAtt DataLakeElasticsearchDomain.DomainArn
+    Export:
+      Name: !Sub "${EnvironmentPrefix}DataLake-ElasticSearchDomainArn"                    

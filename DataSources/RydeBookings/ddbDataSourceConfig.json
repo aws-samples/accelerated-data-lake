@@ -1,0 +1,38 @@
+{
+    "fileSettings": {
+      "fileFormat": "json",
+      "fileNamePattern": "rydebookings/rydebooking-[0-9]{10}.json",
+      "calculateMD5": "True",
+      "stagingFolderPath": "rydebookings",
+      "stagingPartitionSettings": {
+        "expression": "year=%Y/month=%m/day=%d",
+        "timezone": "Australia/Brisbane"
+      }
+    },
+    "fileType": "RydeBooking",
+    "metadata": {
+      "creator": "Eunice the Unicorn",
+      "quality": "HIGH",
+      "sourcesystem": "3x3x3 DataLake Demonstration"
+    },
+    "schema": {
+      "properties": {
+        "bookingDetails": {
+          "type": "object"
+        },
+        "totalPassengers": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "totalPassengers",
+        "bookingDetails"
+      ],
+      "type": "object"
+    },
+    "tags": {
+      "dataOwner": "WildRydes",
+      "dataSource": "RydeBookings",
+      "pii": "FALSE"
+    }
+  }
