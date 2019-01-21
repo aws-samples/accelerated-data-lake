@@ -35,50 +35,7 @@ def lambda_handler(event, context):
                 # Get the s3 object details from the event
                 bucket = record['s3']['bucket']['name']
                 key = record['s3']['object']['key']
-
-                try:
-                    file_name = os.path.basename(key)
-                    timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-                    keystring = re.sub('\W+', '_', key)  # Remove special chars
-                    step_function_name = timestamp + id_generator() + \
-                        '_' + keystring
-
-                    step_function_name = step_function_name[:80]
-
-                    sfn_Input = {
-                        'fileDetails': {
-                            'bucket': bucket,
-                            'key': key,
-                            'fileName': file_name
-                        },
-                        'settings': {
-                            'dataSourceTableName':
-                                os.environ['DATA_SOURCE_TABLE_NAME'],
-                            'dataCatalogTableName':
-                                os.environ['DATA_CATALOG_TABLE_NAME'],
-                            'defaultSNSErrorArn':
-                                os.environ['SNS_FAILURE_ARN'],
-                            's3_cache_table':
-                                os.environ['S3_CACHE_TABLE_NAME'],
-                            'stagingBucket':
-                                os.environ['STAGING_BUCKET_NAME'],
-                            'failedBucket':
-                                os.environ['FAILED_BUCKET_NAME']
-                        }
-                    }
-
-                    # Start step function
-                    step_function_input = json.dumps(sfn_Input)
-                    sfn.start_execution(
-                        stateMachineArn=state_machine_arn,
-                        name=step_function_name, input=step_function_input)
-
-                    print('Started step function with input:{}'.
-                          format(step_function_input))
-                except Exception as e:
-                    record_failure_to_start_file_processing(
-                        bucket, key, e)
-                    raise
+                start_step_function_for_file(bucket, key)
         else:
             print('Request id {} is already in processing cache'
                   .format(context.aws_request_id))
@@ -86,6 +43,51 @@ def lambda_handler(event, context):
         traceback.print_exc()
         send_failure_sns_message(bucket, key)
         raise StartFileProcessing(e)
+
+
+def start_step_function_for_file(bucket, key):
+    try:
+        file_name = os.path.basename(key)
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+        keystring = re.sub('\W+', '_', key)  # Remove special chars
+        step_function_name = timestamp + id_generator() + '_' + keystring
+
+        step_function_name = step_function_name[:80]
+
+        sfn_Input = {
+            'fileDetails': {
+                'bucket': bucket,
+                'key': key,
+                'fileName': file_name
+            },
+            'settings': {
+                'dataSourceTableName':
+                    os.environ['DATA_SOURCE_TABLE_NAME'],
+                'dataCatalogTableName':
+                    os.environ['DATA_CATALOG_TABLE_NAME'],
+                'defaultSNSErrorArn':
+                    os.environ['SNS_FAILURE_ARN'],
+                's3_cache_table':
+                    os.environ['S3_CACHE_TABLE_NAME'],
+                'stagingBucket':
+                    os.environ['STAGING_BUCKET_NAME'],
+                'failedBucket':
+                    os.environ['FAILED_BUCKET_NAME']
+            }
+        }
+
+        # Start step function
+        step_function_input = json.dumps(sfn_Input)
+        sfn.start_execution(
+            stateMachineArn=state_machine_arn,
+            name=step_function_name, input=step_function_input)
+
+        print('Started step function with input:{}'
+              .format(step_function_input))
+    except Exception as e:
+            record_failure_to_start_step_function(
+                bucket, key, e)
+            raise
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
@@ -119,7 +121,7 @@ def send_failure_sns_message(bucket, key):
         Message=message)
 
 
-def record_failure_to_start_file_processing(bucket, key, exception):
+def record_failure_to_start_step_function(bucket, key, exception):
     try:
         data_catalog_table = os.environ['DATA_CATALOG_TABLE_NAME']
 

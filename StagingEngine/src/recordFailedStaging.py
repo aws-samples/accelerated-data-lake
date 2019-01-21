@@ -28,7 +28,8 @@ def record_failed_staging_in_data_catalog(event, context):
 
         # Remove the stack trace as its inconsistency
         # confuses elasticsearch autoindexing
-        del error_cause['stackTrace']
+        if 'stackTrace' in error_cause:
+            del error_cause['stackTrace']
 
         data_catalog_table = event["settings"]["dataCatalogTableName"]
 
@@ -47,9 +48,10 @@ def record_failed_staging_in_data_catalog(event, context):
         if 'contentLength' in event['fileDetails']:
             dynamodb_item['contentLength'] = \
                 event['fileDetails']['contentLength']
-        if 'stagingPartitionSettings' in event['fileSettings']:
-            dynamodb_item['stagingPartitionSettings'] = \
-                event['fileSettings']['stagingPartitionSettings']
+        if 'fileSettings' in event:
+            if 'stagingPartitionSettings' in event['fileSettings']:
+                dynamodb_item['stagingPartitionSettings'] = \
+                    event['fileSettings']['stagingPartitionSettings']
         if 'stagingBucket' in event['settings']:
             dynamodb_item['stagingBucket'] = \
                 event['settings']['stagingBucket']
