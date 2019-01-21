@@ -41,9 +41,9 @@ Parameters:
     Default: true # This is set to true as dataCatalog lambda requires it
     AllowedValues: [true, false]
   IpAddress:
-    Description: The IP address allowed access to kibana url
+    Description: The IP address / CIDR range allowed access to kibana url
     Type: String
-    Default: 54.240.193.1/24 
+    MinLength: 1
 Conditions: 
   HasDedicatedMasterNodes: !Equals [!Ref DedicatedMasterEnabled, true]    
 Resources:
