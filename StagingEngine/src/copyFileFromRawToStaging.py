@@ -1,5 +1,7 @@
-import boto3
+import re
 import traceback
+
+import boto3
 from dateutil import parser
 from dateutil.tz import gettz
 
@@ -13,31 +15,49 @@ dynamodb = boto3.resource('dynamodb')
 
 
 def lambda_handler(event, context):
-    copy_file_to_staging(event, context)
-    return event
+    '''
+    lambda_handler Top level lambda handler ensuring all exceptions
+    are caught and logged.
+
+    :param event: AWS Lambda uses this to pass in event data.
+    :type event: Python type - Dict / list / int / string / float / None
+    :param context: AWS Lambda uses this to pass in runtime information.
+    :type context: LambdaContext
+    :return: The event object passed into the method
+    :rtype: Python type - Dict / list / int / string / float / None
+    :raises CopyFileFromRawToStagingException: On any error or exception
+    '''
+    try:
+        return copy_file_from_raw_to_staging(event, context)
+    except CopyFileFromRawToStagingException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise CopyFileFromRawToStagingException(e)
 
 
-def copy_file_to_staging(event, context):
+def copy_file_from_raw_to_staging(event, context):
+    '''
+    copy_file_from_raw_to_staging Copies the file from the data lake raw
+    bucket to the staging bucket.
+
+    :param event: AWS Lambda uses this to pass in event data.
+    :type event: Python type - Dict / list / int / string / float / None
+    :param context: AWS Lambda uses this to pass in runtime information.
+    :type context: LambdaContext
+    :return: The event object passed into the method
+    :rtype: Python type - Dict / list / int / string / float / None
+    '''
     try:
         raw_bucket = event['fileDetails']['bucket']
         raw_key = event['fileDetails']['key']
-        raw_file_name = event['fileDetails']['fileName']
         staging_bucket = event['settings']['stagingBucket']
-        staging_folder_path = event['fileSettings']['stagingFolderPath']
         metadata = event['attachedMetadata']
-        created_date = metadata['createddate']
 
-        # Generate the staging key, including partitioning info if required.
-        if 'stagingPartitionSettings' in event['fileSettings']:
-            staging_key = get_staging_key(
-                raw_file_name,
-                staging_folder_path,
-                event['fileSettings']
-                     ['stagingPartitionSettings']['expression'],
-                event['fileSettings']['stagingPartitionSettings']['timezone'],
-                created_date)
-        else:
-            staging_key = staging_folder_path + '/' + raw_file_name
+        staging_key = _get_staging_key(
+            event['fileDetails'],
+            event['fileSettings'],
+            metadata)
 
         # Tags and metadata follow s3's read after first write consistency -
         # everything else is eventual. So, it is possible the tags and metadata
@@ -55,7 +75,7 @@ def copy_file_to_staging(event, context):
             ExtraArgs={"Metadata": metadata, "MetadataDirective": "REPLACE"})
         event['fileDetails'].update({"stagingKey": staging_key})
 
-        # Re-generat the tag list.
+        # Re-generate the tag list.
         tagList = []
         for tagKey in event['requiredTags']:
             tag = {'Key': tagKey, 'Value': event['requiredTags'][tagKey]}
@@ -66,25 +86,104 @@ def copy_file_to_staging(event, context):
             Bucket=staging_bucket,
             Key=staging_key,
             Tagging={'TagSet': tagList})
+
+        return event
     except Exception as e:
         traceback.print_exc()
         raise CopyFileFromRawToStagingException(e)
 
 
-def get_staging_key(raw_file_name, staging_folder, staging_expression,
-                    tz_staging_timezone, date_time_string):
-    # Get the dateTime in the specified timezone. Ensure TZ format:
-    # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    # ie, "Australia/Brisbane"
-    datetime = parser.parse(date_time_string)
-    datetme_in_timezone = datetime.astimezone(gettz(tz_staging_timezone))
+def _get_staging_key(file_details, file_settings, metadata):
+    '''
+    _get_staging_key Given the supplied file details, settings and
+    metadata, returns the appropriate staging key (folders + filename).
+    If a staging_folder_path is provided - use it. If not, use the
+    same path as in raw.
+    If staging_partition_settings are provided - use them to set
+    date partitioning.
 
-    staging_key = "{}/{}/{}".format(
-        staging_folder,
-        datetme_in_timezone.strftime(staging_expression),
-        raw_file_name)
-    print(
-        "Source DateTime:{} tzDateTime:{} stagingKey:{}",
-        datetime, datetme_in_timezone, staging_key)
+    :param file_details: The file_details from the input event
+    :type file_details: Python Object
+    :param file_settings: The file_settings from the input event
+    :type file_settings: Python Object
+    :param metadata: The metadata from the input event
+    :type metadata: Python Object
+    :return: The staging key of this file
+    :rtype: Python String
+    '''
+    raw_key = file_details['key']
+    raw_file_name = file_details['fileName']
+
+    staging_folder_path = file_settings['stagingFolderPath']\
+        if 'stagingFolderPath' in file_settings\
+        else None
+
+    staging_partition_settings = file_settings['stagingPartitionSettings']\
+        if 'stagingPartitionSettings' in file_settings\
+        else None
+
+    if staging_folder_path is not None:
+        staging_key = staging_folder_path
+    else:
+        staging_key = _get_folder_path_from_key(raw_key)
+
+    if staging_partition_settings is not None:
+        staging_expression = file_settings['stagingPartitionSettings']\
+            ['expression']
+        staging_timezone = file_settings['stagingPartitionSettings']\
+            ['timezone']
+        created_date = metadata['created_date']
+
+        created_datetime = parser.parse(created_date)
+        staging_key = _remove_datetime_partitions_from_key(staging_key)
+        datetme_in_timezone = created_datetime.astimezone(
+            gettz(staging_timezone))
+
+        staging_key = "{}/{}".format(
+            staging_key,
+            datetme_in_timezone.strftime(staging_expression))
+
+    # Add the filename, and remove any double slashes. This stops the config
+    # of datasources being too draconian regarding start and end slashes.
+    staging_key = '{}/{}'.format(staging_key, raw_file_name).replace('//', '/')
 
     return staging_key
+
+
+def _get_folder_path_from_key(key):
+    '''
+    _get_folder_path_from_key Retrieves the s3 folder path from
+    the key name. This is the input key without the filename.
+
+    :param key: The S3 key name (folders + filename)
+    :type key: Python String
+    :return: The folder path
+    :rtype: Python String
+    '''
+    last_folder_ends = key.rfind('/')
+    if last_folder_ends == -1:
+        return ''
+    else:
+        return key[:last_folder_ends + 1]
+
+
+def _remove_datetime_partitions_from_key(key):
+    '''
+    _remove_datetime_partitions_from_key Removes any existing
+    date / time partitions from the folder path. These will be
+    replaced with the configured timezone.
+
+    :param key: The S3 key name (folders + filename)
+    :type key: Python String
+    :return: The S3 key name without any year/month/day/hour paritions
+    :rtype: Python String
+    '''
+    regex_list = [
+        '/[A-Za-z0-9_]*year=[0-9]+',
+        '/[A-Za-z0-9_]*month=[0-9]+',
+        '/[A-Za-z0-9_]*=[0-9]+',
+        '/[A-Za-z0-9_]*=[0-9]+']
+    new_key = key
+    for regex_match in regex_list:
+        new_key = re.sub(regex_match, '', new_key)
+    return new_key

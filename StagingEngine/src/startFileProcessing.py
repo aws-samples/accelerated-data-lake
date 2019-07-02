@@ -5,13 +5,14 @@ import re
 import string
 import time
 import traceback
+import urllib
 from datetime import datetime
 
 import boto3
 from botocore.exceptions import ClientError
 
 
-class StartFileProcessing(Exception):
+class StartFileProcessingException(Exception):
     pass
 
 
@@ -24,28 +25,66 @@ state_machine_arn = os.environ['STEP_FUNCTION']
 
 
 def lambda_handler(event, context):
-    try:
-        # Only proceed if the request id that triggered this lambda
-        # is not already being processed. This protects us against
-        # multiple lambdas processing the same request.
-        if is_request_in_processing_cache(
-                s3_cache_table, context.aws_request_id) is False:
+    '''
+    lambda_handler Top level lambda handler ensuring all exceptions
+    are caught and logged.
 
-            for record in event['Records']:
-                # Get the s3 object details from the event
-                bucket = record['s3']['bucket']['name']
-                key = record['s3']['object']['key']
-                start_step_function_for_file(bucket, key)
-        else:
-            print('Request id {} is already in processing cache'
-                  .format(context.aws_request_id))
+    :param event: AWS Lambda uses this to pass in event data.
+    :type event: Python type - Dict / list / int / string / float / None
+    :param context: AWS Lambda uses this to pass in runtime information.
+    :type context: LambdaContext
+    :return: The event object passed into the method
+    :rtype: Python type - Dict / list / int / string / float / None
+    :raises StartFileProcessingException: On any error or exception
+    '''
+    try:
+        return start_file_processing(event, context)
+    except StartFileProcessingException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        send_failure_sns_message(bucket, key)
-        raise StartFileProcessing(e)
+        raise StartFileProcessingException(e)
+
+
+def start_file_processing(event, context):
+    '''
+    start_file_processing Confirm the lambda context request id is
+    not already being processed, check this is not just a folder being 
+    created, then start file processing.
+
+    :param event: AWS Lambda uses this to pass in event data.
+    :type event: Python type - Dict / list / int / string / float / None
+    :param context: AWS Lambda uses this to pass in runtime information.
+    :type context: LambdaContext
+    :return: The event object passed into the method
+    :rtype: Python type - Dict / list / int / string / float / None
+    '''
+    if is_request_in_processing_cache(
+            s3_cache_table, context.aws_request_id) is False:
+
+        for record in event['Records']:
+            bucket = record['s3']['bucket']['name']
+            key = urllib.parse.unquote_plus(record['s3']['object']['key'], encoding='utf-8')
+
+        if key.endswith('/') is False:
+            start_step_function_for_file(bucket, key)
+    else:
+        print('Request id {} is already in processing cache'
+              .format(context.aws_request_id))
+
+    return event
 
 
 def start_step_function_for_file(bucket, key):
+    '''
+    start_step_function_for_file Starts the data lake staging engine
+    step function for this file.
+
+    :param bucket:  The S3 bucket name
+    :type bucket: Python String
+    :param key: The S3 object key
+    :type key: Python String
+    '''
     try:
         file_name = os.path.basename(key)
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
@@ -58,7 +97,8 @@ def start_step_function_for_file(bucket, key):
             'fileDetails': {
                 'bucket': bucket,
                 'key': key,
-                'fileName': file_name
+                'fileName': file_name,
+                'stagingExecutionName': step_function_name
             },
             'settings': {
                 'dataSourceTableName':
@@ -91,10 +131,33 @@ def start_step_function_for_file(bucket, key):
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    '''
+    id_generator Creates a random id to add to the step function
+    name - duplicate names will cause errors.
+
+    :param size: The required length of the id, defaults to 6
+    :param size: Python Integer, optional
+    :param chars: Chars used to generate id, defaults to uppercase alpha+digits
+    :param chars: Python String
+    :return: The generated id
+    :rtype: Python String
+    '''
     return ''.join(random.choice(chars) for _ in range(size))
 
 
 def is_request_in_processing_cache(s3_cache_table, request_id):
+    '''
+    is_request_in_processing_cache Checks that the request id is
+    not already in the cache by doing a write that is conditional
+    that the value does not already exist.
+
+    :param s3_cache_table: The DynamnoDB table name for S3 caching
+    :type s3_cache_table: Python String
+    :param request_id: The request id
+    :type request_id: Python String
+    :return: True if the request is already in the prccessing cache
+    :rtype: Python Boolean]
+    '''
     try:
         # Add the request to the cache table, with
         # the condition that it's not already present
@@ -111,6 +174,15 @@ def is_request_in_processing_cache(s3_cache_table, request_id):
 
 
 def send_failure_sns_message(bucket, key):
+    '''
+    send_failure_sns_message Sends an SNS notification alerting subscribers
+    to the failure.
+    
+    :param bucket:  The S3 bucket name
+    :type bucket: Python String
+    :param key: The S3 object key
+    :type key: Python String
+    '''
     message = \
         "An error occurred starting file processing for Bucket: {}, Key : {}".\
         format(bucket, key)
@@ -122,6 +194,18 @@ def send_failure_sns_message(bucket, key):
 
 
 def record_failure_to_start_step_function(bucket, key, exception):
+    '''
+    record_failure_to_start_step_function Record failure to start the
+    staging engine step function in the data catalog. Any exceptions
+    raised by this method are caught.
+
+    :param bucket:  The S3 bucket name
+    :type bucket: Python String
+    :param key: The S3 object key
+    :type key: Python String
+    :param exception: The exception raised by the failure
+    :type exception: Python Exception
+    '''
     try:
         data_catalog_table = os.environ['DATA_CATALOG_TABLE_NAME']
 
