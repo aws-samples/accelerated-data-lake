@@ -229,7 +229,7 @@ Resources:
       CodeUri: ./src/attachTagsAndMetaDataToFile.py
       Description: Attach the required tags and metadata to the new file. 
       MemorySize: 128
-      Timeout: 10
+      Timeout: 600
       Role: !GetAtt [ LambdaExecutionRole, Arn ]
 
   CopyFileFromRawToStaging:
@@ -240,7 +240,7 @@ Resources:
       CodeUri: ./src/copyFileFromRawToStaging.py
       Description: Copy the new file, and its tags and metadata to the staging bucket.
       MemorySize: 128
-      Timeout: 10
+      Timeout: 600
       Policies:
       Role: !GetAtt [ LambdaExecutionRole, Arn ]      
 
@@ -334,7 +334,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },
               "GetFileSettings": {
                 "Type": "Task",
@@ -347,7 +368,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },
               "VerifyFileSchema": {
                 "Type": "Task",
@@ -360,7 +402,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },
               "AttachTagsAndMetaDataToFile": {
                 "Type": "Task",
@@ -373,7 +436,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },
               "CopyFileFromRawToStaging": {
                 "Type": "Task",
@@ -386,7 +470,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },              
               "RecordSuccessfulStaging": {
                 "Type": "Task",
@@ -399,7 +504,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },                 
               "CopyFileFromRawToFailed": {
                 "Type": "Task",
@@ -412,7 +538,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "RecordFailedStaging"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                      {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },
               "RecordFailedStaging": {
                 "Type": "Task",
@@ -425,7 +572,28 @@ Resources:
                        "ResultPath": "$.error-info",
                        "Next": "FinishedProcessingUnsuccessfulFile"
                     }
-                 ]
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
               },                                 
               "FinishedProcessingUnsuccessfulFile": {
                 "Type": "Pass",
