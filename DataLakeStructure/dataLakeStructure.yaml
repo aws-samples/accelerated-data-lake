@@ -10,6 +10,11 @@ Resources:
           - ''
           - - !Ref EnvironmentPrefix
             - stagingenginecodepackages
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true            
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -24,6 +29,11 @@ Resources:
           - ''
           - - !Ref EnvironmentPrefix
             - datacurationcodepackages
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true            
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -38,6 +48,11 @@ Resources:
           - ''
           - - !Ref EnvironmentPrefix
             - visualisationcodepackages        
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true            
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -56,7 +71,7 @@ Resources:
         BlockPublicAcls: true
         IgnorePublicAcls: true
         BlockPublicPolicy: true
-        RestrictPublicBuckets: false            
+        RestrictPublicBuckets: true            
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -75,6 +90,31 @@ Resources:
               - '/'
     DependsOn: S3Logs
 
+  S3StagingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket: !Ref S3Staging
+      PolicyDocument: 
+        Statement: 
+          - Effect: "Deny"
+            Action: 
+              - "s3:DeleteObject"
+              - "s3:DeleteObjectVersion"              
+            Resource:
+              - Fn::Join:
+                - ''
+                -
+                  - Fn::GetAtt: [ S3Staging, Arn ]
+                  - '/*'              
+            Principal: "*"
+          - Effect: "Deny"
+            Action: 
+              - "s3:DeleteBucket"
+            Resource:
+              Fn::GetAtt: [ S3Staging, Arn ]
+            Principal: "*"
+"
+
   S3Raw:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -87,7 +127,7 @@ Resources:
         BlockPublicAcls: true
         IgnorePublicAcls: true
         BlockPublicPolicy: true
-        RestrictPublicBuckets: false            
+        RestrictPublicBuckets: true            
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -117,30 +157,32 @@ Resources:
       PolicyDocument: 
         Statement: 
           - 
+            Effect: "Allow"
+            Principal: 
+              AWS: !Ref S3RawExternalRoleARN
             Action: 
               - "s3:PutObject"
-            Effect: "Allow"
             Resource: 
               - Fn::Join:
                 - ''
                 -
                   - Fn::GetAtt: [ S3Raw, Arn ]
-                  - '/stationPlatformMessage/*'              
-              - Fn::Join:
-                - ''
-                -
-                  - Fn::GetAtt: [ S3Raw, Arn ]
-                  - '/safetyEvaluationMessage/*'
-              - Fn::Join:
-                - ''
-                -
-                  - Fn::GetAtt: [ S3Raw, Arn ]
-                  - '/messageEvent/*'                                 
-            Principal: 
-              AWS: "arn:aws:iam::277981847675:role/dan-LambdaRole"
+                  - '/*'              
             Condition: 
               StringEquals: 
                 "s3:x-amz-acl": "bucket-owner-full-control"  
+          - 
+            Effect: "Allow"
+            Principal: 
+              AWS: !Ref S3RawExternalRoleARN
+            Action: 
+              - "s3:GetObject"
+            Resource: 
+              - Fn::Join:
+                - ''
+                -
+                  - Fn::GetAtt: [ S3Raw, Arn ]
+                  - '/*'              
     DependsOn: S3Raw
 
   S3Curated:
@@ -155,7 +197,7 @@ Resources:
         BlockPublicAcls: true
         IgnorePublicAcls: true
         BlockPublicPolicy: true
-        RestrictPublicBuckets: false   
+        RestrictPublicBuckets: true   
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -213,7 +255,7 @@ Resources:
         BlockPublicAcls: true
         IgnorePublicAcls: true
         BlockPublicPolicy: true
-        RestrictPublicBuckets: false              
+        RestrictPublicBuckets: true              
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -232,7 +274,7 @@ Resources:
         BlockPublicAcls: true
         IgnorePublicAcls: true
         BlockPublicPolicy: true
-        RestrictPublicBuckets: false              
+        RestrictPublicBuckets: true              
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -440,6 +482,12 @@ Parameters:
     MinLength: 3
     MaxLength: 63
     AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
+
+  S3RawExternalRoleARN:
+    Type: String
+    Default: arn:aws:iam::000000000000:role/my-role
+    Description: Enter the name the external role that can write to the raw bucket.
+    AllowedPattern: "arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9-]*"
 
   DataSourceTableName:
     Type: String
