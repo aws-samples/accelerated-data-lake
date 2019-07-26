@@ -1,0 +1,95 @@
+{
+    "fileSettings": {
+      "fileFormat": "tsv",
+      "fileNamePattern": "amazon_reviews/amazon_reviews_us_.*.tsv",
+      "calculateMD5": "True",
+      "stagingFolderPath": "amazon_reviews",
+      "stagingPartitionSettings": {
+        "expression": "year=%Y/month=%m/day=%d",
+        "timezone": "Australia/Brisbane"
+      }
+    },
+    "fileType": "AmazonReviews",
+    "metadata": {
+      "creator": "Suken Shah",
+      "quality": "HIGH",
+      "sourcesystem": "3x3x3 DataLake Demonstration"
+    },
+    "schema": {
+      "properties": [
+        {
+          "field": "marketplace",
+          "type": "string"
+        },
+        {
+          "field": "customer_id",
+          "type": "int"
+        },
+        {
+          "field": "review_id",
+          "type": "string"
+        },
+        {
+          "field": "product_id",
+          "type": "string"
+        },
+        {
+          "field": "product_parent",
+          "type": "int"
+        },
+        {
+          "field": "product_title",
+          "type": "string"
+        },
+        {
+          "field": "product_category",
+          "type": "string"
+        },
+        {
+          "field": "star_rating",
+          "type": "int"
+        },
+        {
+          "field": "helpful_votes",
+          "type": "int"
+        },
+        {
+          "field": "total_votes",
+          "type": "int"
+        },
+        {
+          "field": "vine",
+          "type": "enum",
+          "values":[
+            "Y",
+            "N"
+          ]
+        },
+        {
+          "field": "verified_purchase",
+          "type": "enum",
+          "values":[
+            "Y",
+            "N"
+          ]
+        },
+        {
+          "field": "review_headline",
+          "type": "string"
+        },
+        {
+          "field": "review_body",
+          "type": "string"
+        },
+        {
+          "field": "review_date",
+          "type": "string"
+        }
+      ]
+    },
+    "tags": {
+      "dataOwner": "Amazon",
+      "dataSource": "AmazonBookings",
+      "pii": "FALSE"
+    }
+  }

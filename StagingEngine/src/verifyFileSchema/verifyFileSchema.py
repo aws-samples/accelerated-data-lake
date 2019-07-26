@@ -62,7 +62,9 @@ def _verify_file_schema(event, context):
             if file_settings['fileFormat'] == 'json':
                 _verify_json_schema(file_content, event['schema'])
             elif file_settings['fileFormat'] == 'csv':
-                _verify_csv_schema(file_content, event['schema'])
+                _verify_csv_schema(file_content, ',', event['schema'])
+            elif file_settings['fileFormat'] == 'tsv':
+                _verify_csv_schema(file_content, '\t', event['schema'])
             else:
                 raise VerifyFileSchemaException(
                     "Filetype: {} has a defined schema but no "
@@ -93,13 +95,31 @@ def _verify_json_schema(file_content, schema):
         start_position = start_position + end_position
 
 
-def _verify_csv_schema(file_content, schema):
+def _verify_csv_schema(file_content, separator, schema):
     file_content_lines = file_content.splitlines()
-    csv_reader = csv.reader(file_content_lines)
-    field_names = tuple(schema['field_names'])
+    csv_reader = csv.reader(file_content_lines, delimiter=separator)
 
-    validator = csvvalidator.CSVValidator(field_names)
+    field_names = []
+    schema_properties = schema['properties']
+    for prop in schema_properties:
+        field_names.append(prop['field'])
+
+    # field_names = tuple(schema['properties'])
+
+    validator = csvvalidator.CSVValidator(tuple(field_names))
     validator.add_header_check('EX1', 'bad header')
+
+    for prop in schema_properties:
+        prop_field = prop['field']
+        prop_type = prop['type']
+        if prop_type == 'int':
+            validator.add_value_check(prop_field, int, 'EX_INT', prop_field + ' must be an integer')
+        elif prop_type == 'string':
+            validator.add_value_check(prop_field, str, 'EX_STR', prop_field + ' must be a string')
+        elif prop_type == 'enum':
+            enum_values = tuple(prop['values'])
+            validator.add_value_check(prop_field, csvvalidator.enumeration(enum_values), 'EX_ENUM', prop_field + ' must have value from enum')
+
     problems = validator.validate(csv_reader)
 
     if len(problems) > 0:
