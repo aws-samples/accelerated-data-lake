@@ -54,7 +54,7 @@ Execution steps:
 * Create a new stack using the template `/Visualisation/elasticsearch/elasticsearch.yaml`
 * Enter the stack name. For example: `wildrydes-dev-datalake-elasticsearch`
 * Enter the environment prefix, in this case: `wildrydes-dev-`
-* Enter the your ip address, in this case: `<your_ip/32>`
+* Enter the your ip addresses (comma separated), in this case: `<your_ip/32>,<another_cidr>`
 * Change the other parameters as per requirements / best practise. The default values will provision a single instance `t2.medium` node - this is adequate for low tps dev and testing.
 
 ### 2.2 Provision the Visualisation Lambdas
