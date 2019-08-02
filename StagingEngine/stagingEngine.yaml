@@ -147,7 +147,7 @@ Resources:
       CodeUri: ./src/startFileProcessing.py
       Description: Initiates File Processing Step Function. This is triggered when new file put into RAW bucket.
       MemorySize: 128
-      Timeout: 10
+      Timeout: 300
       Policies: 
         - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
         - DynamoDBCrudPolicy:
@@ -207,7 +207,7 @@ Resources:
       CodeUri: ./src/getFileSettings.py
       Description: Load the settings for the new file's file type (data source)
       MemorySize: 128
-      Timeout: 10
+      Timeout: 300
       Role: !GetAtt [ LambdaExecutionRole, Arn ]
 
   VerifyFileSchema:
@@ -217,8 +217,8 @@ Resources:
       Runtime: python3.6
       CodeUri: ./src/verifyFileSchema
       Description: Verify the schema of the file (if configured).
-      MemorySize: 128
-      Timeout: 10
+      MemorySize: 384
+      Timeout: 600
       Role: !GetAtt [ LambdaExecutionRole, Arn ]            
 
   AttachTagsAndMetaDataToFile:
@@ -252,7 +252,7 @@ Resources:
       CodeUri: ./src/recordSuccessfulStaging.py
       Description: Records successful staging in the data lake data catalog, and sends success SNS if configured.
       MemorySize: 128
-      Timeout: 10
+      Timeout: 300
       Policies:
         - DynamoDBCrudPolicy:
             TableName: 
@@ -269,7 +269,7 @@ Resources:
       CodeUri: ./src/copyFileFromRawToFailed.py
       Description: Copy files that have failed ingress from the raw to failed bucket.
       MemorySize: 128
-      Timeout: 10
+      Timeout: 600
       Role: !GetAtt [ LambdaFailedFileProcessorRole, Arn ]      
 
   RecordFailedStaging:
@@ -280,7 +280,7 @@ Resources:
       CodeUri: ./src/recordFailedStaging.py
       Description: Records failed staging in the data lake data catalog, and sends failure SNS if configured.
       MemorySize: 128
-      Timeout: 10
+      Timeout: 300
       Policies:
         - DynamoDBCrudPolicy:
             TableName: 
