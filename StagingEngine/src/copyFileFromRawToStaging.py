@@ -178,11 +178,7 @@ def _remove_datetime_partitions_from_key(key):
     :return: The S3 key name without any year/month/day/hour paritions
     :rtype: Python String
     '''
-    regex_list = [
-        '/[A-Za-z0-9_]*year=[0-9]+',
-        '/[A-Za-z0-9_]*month=[0-9]+',
-        '/[A-Za-z0-9_]*=[0-9]+',
-        '/[A-Za-z0-9_]*=[0-9]+']
+    regex_list = ['/[A-Za-z0-9_]*=[0-9]+']
     new_key = key
     for regex_match in regex_list:
         new_key = re.sub(regex_match, '', new_key)

@@ -5,6 +5,7 @@ import traceback
 
 import boto3
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 import csvvalidator
 
@@ -78,6 +79,17 @@ def _verify_file_schema(event, context):
 
 
 def _verify_json_schema(file_content, schema):
+    '''
+    _verify_json_schema Verifies the schema of json data. The while loop
+    is present to allow json documents batched into the same file by firehose
+    to be processed and verified.
+
+    :param file_content: The content of the file
+    :type file_content: Python String
+    :param schema: The jsonschema we are expecting
+    :type schema: Python String
+    :raises Exception: When file_content schema is incorrect
+    '''
     decoder = json.JSONDecoder()
     start_position = 0
     while True:
@@ -89,11 +101,25 @@ def _verify_json_schema(file_content, schema):
         json_object, end_position = decoder.raw_decode(
             file_content[start_position:])
 
-        validate(json_object, schema)
+        try:
+            validate(json_object, schema)
+        except ValidationError as ve:
+            raise VerifyFileSchemaException(ve.message[:10240])
+
         start_position = start_position + end_position
 
 
 def _verify_csv_schema(file_content, schema):
+    '''
+    _verify_csv_schema Verifies the schema of csv data. Only required
+    column names are confirmed
+
+    :param file_content: The content of the file
+    :type file_content: Python String
+    :param schema: The csv schema we are expecting
+    :type schema: Python String
+    :raises Exception: When file_content schema is incorrect
+    '''
     file_content_lines = file_content.splitlines()
     csv_reader = csv.reader(file_content_lines)
     field_names = tuple(schema['field_names'])
