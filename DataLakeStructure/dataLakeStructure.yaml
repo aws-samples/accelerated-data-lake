@@ -345,11 +345,12 @@ Resources:
           AttributeName: "fileType"
           KeyType: "HASH"
       TableName: !Sub '${EnvironmentPrefix}${DataSourceTableName}'
-      ProvisionedThroughput:
-        ReadCapacityUnits:
-          Ref: ReadCapacityUnitsDS
-        WriteCapacityUnits:
-          Ref: WriteCapacityUnitsDS
+      BillingMode: PAY_PER_REQUEST      
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits:
+      #     Ref: ReadCapacityUnitsDS
+      #   WriteCapacityUnits:
+      #     Ref: WriteCapacityUnitsDS
 
   DataCatalogTable:
     Type: "AWS::DynamoDB::Table"
@@ -369,11 +370,12 @@ Resources:
           AttributeName: "catalogTime"
           KeyType: "RANGE"
       TableName: !Sub '${EnvironmentPrefix}${DataCatalogTableName}'
-      ProvisionedThroughput:
-        ReadCapacityUnits:
-          Ref: ReadCapacityUnitsDC
-        WriteCapacityUnits:
-          Ref: WriteCapacityUnitsDC
+      BillingMode: PAY_PER_REQUEST      
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits:
+      #     Ref: ReadCapacityUnitsDC
+      #   WriteCapacityUnits:
+      #     Ref: WriteCapacityUnitsDC
       StreamSpecification:
         StreamViewType: NEW_IMAGE
 
@@ -389,11 +391,12 @@ Resources:
           AttributeName: "lastRequestId"
           KeyType: "HASH"
       TableName: !Sub '${EnvironmentPrefix}${S3FileProcessingCacheTableName}'
-      ProvisionedThroughput:
-        ReadCapacityUnits:
-          Ref: ReadCapacityUnitsS3C
-        WriteCapacityUnits:
-          Ref: WriteCapacityUnitsS3C
+      BillingMode: PAY_PER_REQUEST      
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits:
+      #     Ref: ReadCapacityUnitsS3C
+      #   WriteCapacityUnits:
+      #     Ref: WriteCapacityUnitsS3C
 
 Parameters:
   # Prefix used for S3 Buckets and DynamomDB tables (so devo, gamma, prod etc can share account)
@@ -481,45 +484,45 @@ Parameters:
     Default: dataSources
     Description: Enter enter the Data Source DynamoDB table name.
 
-  ReadCapacityUnitsDS:
-    Type: Number
-    Default: 5
-    Description: Enter the number of read capacity units for the Data Source DynamoDB table.
+  # ReadCapacityUnitsDS:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of read capacity units for the Data Source DynamoDB table.
 
-  WriteCapacityUnitsDS:
-    Type: Number
-    Default: 5
-    Description: Enter the number of write capacity units for the Data Source DynamoDB table.
+  # WriteCapacityUnitsDS:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of write capacity units for the Data Source DynamoDB table.
 
   DataCatalogTableName:
     Type: String
     Default: dataCatalog
     Description: Enter the Data Catalog DynamoDB table name.
 
-  ReadCapacityUnitsDC:
-    Type: Number
-    Default: 5
-    Description: Enter the number of read capacity units for the Data Catalog DynamoDB table.
+  # ReadCapacityUnitsDC:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of read capacity units for the Data Catalog DynamoDB table.
 
-  WriteCapacityUnitsDC:
-    Type: Number
-    Default: 5
-    Description: Enter the number of write capacity units for the Data Catalog DynamoDB table.
+  # WriteCapacityUnitsDC:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of write capacity units for the Data Catalog DynamoDB table.
 
   S3FileProcessingCacheTableName:
     Type: String
     Default: s3FileProcessingCache
     Description: Enter the S3 File Processing Cache DynamoDB table name.
 
-  ReadCapacityUnitsS3C:
-    Type: Number
-    Default: 5
-    Description: Enter the number of read capacity units for the S3 File Processing Cache DynamoDB table.
+  # ReadCapacityUnitsS3C:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of read capacity units for the S3 File Processing Cache DynamoDB table.
 
-  WriteCapacityUnitsS3C:
-    Type: Number
-    Default: 5
-    Description: Enter the number of write capacity units for the S3 File Processing Cache DynamoDB table.
+  # WriteCapacityUnitsS3C:
+  #   Type: Number
+  #   Default: 5
+  #   Description: Enter the number of write capacity units for the S3 File Processing Cache DynamoDB table.
 
 Conditions:
   HasKMSKey:
