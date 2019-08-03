@@ -625,8 +625,10 @@ Parameters:
 
   EnvironmentPrefix:
     Type: String
-    Default: dev
     Description: Enter the environment prefix used for the DataLake structure (S3 Buckets and DynamoDB tables
+    MinLength: 3
+    MaxLength: 19
+    AllowedPattern: "[a-z][a-z0-9-]+"
 
 Metadata:
   'AWS::CloudFormation::Interface':

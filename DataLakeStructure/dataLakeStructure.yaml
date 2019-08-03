@@ -402,8 +402,10 @@ Parameters:
   # Prefix used for S3 Buckets and DynamomDB tables (so devo, gamma, prod etc can share account)
   EnvironmentPrefix:
     Type: String
-    Default: dev
-    Description: Enter an environment prefix for the S3 Buckets and DynamoDB tables.
+    Description: Enter an environment prefix for the S3 Buckets and DynamoDB tables ([a-z][a-z0-9-]+)
+    MinLength: 3
+    MaxLength: 19
+    AllowedPattern: "[a-z][a-z0-9-]+"
 
   KMSKeyARN:
     Type: String
@@ -473,11 +475,11 @@ Parameters:
     MaxLength: 63
     AllowedPattern: "([a-zA-Z0-9]){1}([a-zA-Z0-9-])*"
 
-  S3RawExternalRoleARN:
-    Type: String
-    Default: arn:aws:iam::000000000000:role/my-role
-    Description: Enter the name the external role that can write to the raw bucket.
-    AllowedPattern: "arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9-]*"
+  # S3RawExternalRoleARN:
+  #  Type: String
+  #  Default: arn:aws:iam::000000000000:role/my-role
+  #  Description: Enter the name the external role that can write to the raw bucket.
+  #  AllowedPattern: "arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9-]*"
 
   DataSourceTableName:
     Type: String
