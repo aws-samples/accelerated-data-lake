@@ -43,6 +43,7 @@ Parameters:
   IpAddresses:
     Description: The IP address / CIDR range allowed access to kibana url
     Type: List<String>
+    Default: '54.240.193.0/24,203.9.185.243/32,13.237.104.186'
 Conditions:
   HasDedicatedMasterNodes: !Equals [!Ref DedicatedMasterEnabled, true]    
 Resources:
@@ -76,9 +77,6 @@ Resources:
           Condition:
             IpAddress:
               aws:SourceIp: !Ref IpAddresses
-#              - "54.240.193.0/24"
-#              - "203.9.185.243/32"
-#              - "13.237.104.186"
       AdvancedOptions:
         rest.action.multi.allow_explicit_index: !Ref AllowExplicitIndex
   ElasticsearchCloudWatchDashboard:
