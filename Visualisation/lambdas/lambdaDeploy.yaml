@@ -80,5 +80,7 @@ Resources:
 Parameters:
   EnvironmentPrefix:
     Type: String
-    Default: dev
-    Description: Enter the environment prefix used for the DataLake structure (S3 Buckets and DynamoDB tables
+    Description: Enter the environment prefix used for the DataLake structure (S3 Buckets and DynamoDB tables ([a-z][a-z0-9-]+)
+    MinLength: 3
+    MaxLength: 19
+    AllowedPattern: "[a-z][a-z0-9-]+"

@@ -73,7 +73,7 @@ def record_successful_staging_in_data_catalog(event, context):
         data_catalog_table = event["settings"]["dataCatalogTableName"]
 
         tags = event['requiredTags']
-        metadata = event['attachedMetadata']
+        metadata = event['combinedMetadata']
 
         if 'stagingPartitionSettings' in event['fileSettings']:
             staging_partition_settings = \

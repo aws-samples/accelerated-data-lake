@@ -3,8 +3,10 @@ Description: 'DataLake Elasticsearch Visualisation'
 Parameters:
   EnvironmentPrefix:
     Type: String
-    Default: dev
-    Description: Enter an environment prefix for the elasticsearch domain.
+    Description: Enter an environment prefix for the elasticsearch domain ([a-z][a-z0-9-]+)
+    MinLength: 3
+    MaxLength: 19
+    AllowedPattern: "[a-z][a-z0-9-]+"
   ElasticSearchInstanceCount:
     Description: Elastic Search Instance Count
     Type: Number
@@ -50,7 +52,7 @@ Resources:
   DataLakeElasticsearchDomain:
     Type: 'AWS::Elasticsearch::Domain'
     Properties:
-      DomainName: !Sub "${EnvironmentPrefix}datalake-es" 
+      DomainName: !Sub "${EnvironmentPrefix}datalake" 
       ElasticsearchVersion: '6.3'
       ElasticsearchClusterConfig:
         DedicatedMasterEnabled: !Ref DedicatedMasterEnabled
