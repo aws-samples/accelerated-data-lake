@@ -242,7 +242,18 @@ Resources:
       MemorySize: 128
       Timeout: 600
       Policies:
-      Role: !GetAtt [ LambdaExecutionRole, Arn ]      
+      Role: !GetAtt [ LambdaExecutionRole, Arn ]
+      
+  DeleteRawFile:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: deleteRawFile.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./src/deleteRawFile.py
+      Description: Deletes the raw file after successful or failed staging.
+      MemorySize: 128
+      Timeout: 600
+      Role: !GetAtt [ LambdaFailedFileProcessorRole, Arn ]     
 
   RecordSuccessfulStaging:
     Type: 'AWS::Serverless::Function'
@@ -312,10 +323,16 @@ Resources:
                 Resource: "*"            
 
   # Step Function state machine
+  # Remove WaitForRawBucketReadsToComplete wait state if no clients are reading
+  # data directly from the raw bucket after receiving an S3 PUT trigger.
+  # NOTE: reading from the Raw bucket is not advisable - if you need low-latency / 
+  # near real-time access to new data, consider implementing the lambda architecture
+  # with kinesis data streams and kinesis firehose. If you have to read from the raw
+  # bucket for certain data sources, consider making this wait state configurable.
   FileProcessor:
     Type: AWS::StepFunctions::StateMachine
     Properties:
-      StateMachineName: DataLakeStagingEngine
+      StateMachineName: !Sub "${EnvironmentPrefix}stagingengine" 
       DefinitionString: !Sub 
         - |-
           {
@@ -463,10 +480,49 @@ Resources:
                 "Type": "Task",
                 "Resource": "${CopyFileFromRawToStagingArn}",
                 "Comment": "Copy the new file, and its tags and metadata to the staging bucket.",
-                "Next": "RecordSuccessfulStaging",
+                "Next": "WaitForRawBucketReadsToComplete",
                 "Catch": [
                     {
                        "ErrorEquals": ["CopyFileFromRawToStagingException","Exception"],
+                       "ResultPath": "$.error-info",
+                       "Next": "CopyFileFromRawToFailed"
+                    }
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
+              },
+              "WaitForRawBucketReadsToComplete": {
+                "Type": "Wait",
+                "Seconds": 10,
+                "Next": "DeleteRawFileAfterSuccessfulStaging"
+              },
+              "DeleteRawFileAfterSuccessfulStaging": {
+                "Type": "Task",
+                "Resource": "${DeleteRawFileArn}",
+                "Comment": "Deletes the file from the raw bucket.",
+                "Next": "RecordSuccessfulStaging",
+                "Catch": [
+                    {
+                       "ErrorEquals": ["DeleteRawFileException","Exception"],
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
@@ -531,7 +587,7 @@ Resources:
                 "Type": "Task",
                 "Resource": "${CopyFileFromRawToFailedArn}",
                 "Comment": "Copy files that have failed ingress from the raw to failed bucket.",
-                "Next": "RecordFailedStaging",
+                "Next": "DeleteRawFileAfterFailedStaging",
                 "Catch": [
                     {
                        "ErrorEquals": ["CopyFileFromRawToFailedException","Exception"],
@@ -561,6 +617,40 @@ Resources:
                     }
                 ]
               },
+              "DeleteRawFileAfterFailedStaging": {
+                "Type": "Task",
+                "Resource": "${DeleteRawFileArn}",
+                "Comment": "Deletes the file from the raw bucket.",
+                "Next": "RecordFailedStaging",
+                "Catch": [
+                    {
+                       "ErrorEquals": ["DeleteRawFileException","Exception"],
+                       "ResultPath": "$.error-info",
+                       "Next": "RecordFailedStaging"
+                    }
+                 ],
+                "Retry" : [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.Unknown",
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    },
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 4,
+                      "BackoffRate": 1.5
+                    }
+                ]
+              },                
               "RecordFailedStaging": {
                 "Type": "Task",
                 "Resource": "${RecordFailedStagingArn}",
@@ -614,6 +704,7 @@ Resources:
           RecordSuccessfulStagingArn: !GetAtt [RecordSuccessfulStaging, Arn]
           CopyFileFromRawToStagingArn: !GetAtt [CopyFileFromRawToStaging, Arn]
           CopyFileFromRawToFailedArn: !GetAtt [CopyFileFromRawToFailed, Arn]
+          DeleteRawFileArn: !GetAtt [DeleteRawFile, Arn]
           RecordFailedStagingArn: !GetAtt [RecordFailedStaging, Arn]
       RoleArn: !GetAtt [ StatesExecutionRole, Arn ]
 
