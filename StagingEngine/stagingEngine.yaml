@@ -221,12 +221,12 @@ Resources:
       Timeout: 600
       Role: !GetAtt [ LambdaExecutionRole, Arn ]            
 
-  AttachTagsAndMetaDataToFile:
+  CalculateMetaDataForFile:
     Type: 'AWS::Serverless::Function'
     Properties:
-      Handler: attachTagsAndMetaDataToFile.lambda_handler
+      Handler: calculateMetaDataForFile.lambda_handler
       Runtime: python3.6
-      CodeUri: ./src/attachTagsAndMetaDataToFile.py
+      CodeUri: ./src/calculateMetaDataForFile.py
       Description: Attach the required tags and metadata to the new file. 
       MemorySize: 128
       Timeout: 600
@@ -395,7 +395,7 @@ Resources:
                 "Type": "Task",
                 "Resource": "${VerifyFileSchemaArn}",
                 "Comment": "Verify the schema of the file (if configured).",
-                "Next": "AttachTagsAndMetaDataToFile",
+                "Next": "CalculateMetaDataForFile",
                 "Catch": [
                     {
                        "ErrorEquals": ["VerifyFileSchemaException","Exception"],
@@ -425,14 +425,14 @@ Resources:
                     }
                 ]
               },
-              "AttachTagsAndMetaDataToFile": {
+              "CalculateMetaDataForFile": {
                 "Type": "Task",
-                "Resource": "${AttachTagsAndMetaDataToFileArn}",
+                "Resource": "${CalculateMetaDataForFileArn}",
                 "Comment": "Attach the required tags and metadata to the new file. ",
                 "Next": "CopyFileFromRawToStaging",
                 "Catch": [
                     {
-                       "ErrorEquals": ["AttachTagsAndMetaDataToFileException","Exception"],
+                       "ErrorEquals": ["CalculateMetaDataForFileException","Exception"],
                        "ResultPath": "$.error-info",
                        "Next": "CopyFileFromRawToFailed"
                     }
@@ -610,7 +610,7 @@ Resources:
         - GetFileTypeArn: !GetAtt [GetFileType, Arn]
           GetFileSettingsArn: !GetAtt [GetFileSettings, Arn]
           VerifyFileSchemaArn: !GetAtt [VerifyFileSchema, Arn]
-          AttachTagsAndMetaDataToFileArn: !GetAtt [AttachTagsAndMetaDataToFile, Arn]
+          CalculateMetaDataForFileArn: !GetAtt [CalculateMetaDataForFile, Arn]
           RecordSuccessfulStagingArn: !GetAtt [RecordSuccessfulStaging, Arn]
           CopyFileFromRawToStagingArn: !GetAtt [CopyFileFromRawToStaging, Arn]
           CopyFileFromRawToFailedArn: !GetAtt [CopyFileFromRawToFailed, Arn]

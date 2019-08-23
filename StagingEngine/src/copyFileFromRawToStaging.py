@@ -52,19 +52,14 @@ def copy_file_from_raw_to_staging(event, context):
         raw_bucket = event['fileDetails']['bucket']
         raw_key = event['fileDetails']['key']
         staging_bucket = event['settings']['stagingBucket']
-        metadata = event['attachedMetadata']
+        metadata = event['combinedMetadata']
 
         staging_key = _get_staging_key(
             event['fileDetails'],
             event['fileSettings'],
             metadata)
 
-        # Tags and metadata follow s3's read after first write consistency -
-        # everything else is eventual. So, it is possible the tags and metadata
-        # we added to the raw file AFTER it was put in the raw bucket will not
-        # be copied across to the staging bucket. To eliminate any chance of
-        # this happening, we specify exactly what metadata we want copying to
-        # staging, and then re-apply the tags.
+        # Copy the object to staging and apply the specified tags and metadata.
         print('Copying object {} from bucket {} to key {} in bucket {}'.format(
             raw_key, raw_bucket, staging_key, staging_bucket))
         copy_source = {'Bucket': raw_bucket, 'Key': raw_key}
@@ -75,13 +70,13 @@ def copy_file_from_raw_to_staging(event, context):
             ExtraArgs={"Metadata": metadata, "MetadataDirective": "REPLACE"})
         event['fileDetails'].update({"stagingKey": staging_key})
 
-        # Re-generate the tag list.
+        # Generate the tag list.
         tagList = []
         for tagKey in event['requiredTags']:
             tag = {'Key': tagKey, 'Value': event['requiredTags'][tagKey]}
             tagList.append(tag)
 
-        # Re-apply the tag list.
+        # Apply the tag list.
         s3.put_object_tagging(
             Bucket=staging_bucket,
             Key=staging_key,
