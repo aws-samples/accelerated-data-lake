@@ -42,11 +42,11 @@ Parameters:
     Type: String
     Default: true # This is set to true as dataCatalog lambda requires it
     AllowedValues: [true, false]
-  IpAddress:
+  IpAddresses:
     Description: The IP address / CIDR range allowed access to kibana url
-    Type: String
-    MinLength: 1
-Conditions: 
+    Type: List<String>
+    Default: '54.240.193.0/24,203.9.185.243/32,13.237.104.186'
+Conditions:
   HasDedicatedMasterNodes: !Equals [!Ref DedicatedMasterEnabled, true]    
 Resources:
   DataLakeElasticsearchDomain:
@@ -78,8 +78,7 @@ Resources:
           - es:*
           Condition:
             IpAddress:
-              aws:SourceIp:
-              - !Ref IpAddress
+              aws:SourceIp: !Ref IpAddresses
       AdvancedOptions:
         rest.action.multi.allow_explicit_index: !Ref AllowExplicitIndex
   ElasticsearchCloudWatchDashboard:

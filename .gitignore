@@ -1,0 +1,5 @@
+.idea/
+DataLakeStructure/params.json
+Visualisation/elasticsearch/params.json
+Visualisation/lambdas/lambdaDeployCFN.yaml
+StagingEngine/stagingEngineDeploy.yaml

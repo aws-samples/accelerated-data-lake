@@ -1,5 +1,5 @@
 # Generic
-sam package --template-file ./stagingEngine.yaml --output-template-file stagingEngineDeploy.yaml --s3-bucket <ENVIRONMENT_PREFIX>-stagingenginecodepackages
+sam package --template-file ./stagingEngine.yaml --output-template-file stagingEngineDeploy.yaml --s3-bucket <ENVIRONMENT_PREFIX>stagingenginecodepackages
 sam deploy --template-file stagingEngineDeploy.yaml --stack-name <ENVIRONMENT_PREFIX>datalake-staging-engine --capabilities CAPABILITY_IAM --parameter-overrides EnvironmentPrefix=<ENVIRONMENT_PREFIX>
 
 # Wildrydes
