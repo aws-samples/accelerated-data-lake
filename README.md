@@ -118,7 +118,7 @@ Execution steps:
 * Copy the file's contents to the clipboard.
 * Go into the AWS Console, DynamoDB screen.
 * Open the DataSource table, which for the environment prefix used in this demonstration will be: `wildrydes-dev-dataSources`
-* Go to the Items tab, click Create Item, and paste in the contents of the `ddbDataSourceConfig.json` file. 
+* Go to the Items tab, click Create Item, switch to 'Text' view and paste in the contents of the `ddbDataSourceConfig.json` file. 
 * Save the item.
 
 You now have a fully configured DataSource. The individual config attributes will be explained in the next version of this documentation.
